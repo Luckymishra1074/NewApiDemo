@@ -1,0 +1,32 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/api/ApiGateway",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44337
+        }
+      ],
+      "UpstreamPathTemplate": "/ApiGateway",
+      "UpstreamHttpMethod": [ "GET" ]
+    }
+
+  ],
+
+
+  "RateLimitOptions": {
+    "ClientWhitelist": [
+
+    ],
+    "EnableRateLimiting": true,
+    "Period": "5s",
+    "PeriodTimespan": 1,
+    "Limit": 1
+  },
+  "UpstreamPathTemplate": "/Product",
+  "UpstreamHttpMethod": [
+    "GET"
+  ]
+}

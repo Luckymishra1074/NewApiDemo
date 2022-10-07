@@ -1,5 +1,7 @@
+using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Identity;
@@ -13,7 +15,10 @@ using Microsoft.OpenApi.Models;
 using NewApiDemo.DbContext;
 using NewApiDemo.Helper;
 using NewApiDemo.Identity;
+using NewApiDemo.Interfaces;
 using NewApiDemo.Services;
+using Ocelot.DependencyInjection;
+using Ocelot.Middleware;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,8 +29,14 @@ namespace NewApiDemo
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration,IWebHostEnvironment environment)
         {
+            var builder = new Microsoft.Extensions.Configuration.ConfigurationBuilder();
+            builder.SetBasePath(environment.ContentRootPath)
+                   //add configuration.json  
+                   .AddJsonFile("Ocelot.json", optional: false, reloadOnChange: true)
+                   .AddEnvironmentVariables();
+
             Configuration = configuration;
         }
 
@@ -43,6 +54,7 @@ namespace NewApiDemo
 
 
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<ICustomerService, CustomerService>();
 
             // For Identity
             services.AddIdentity<ApplicationUser, IdentityRole>()
@@ -66,8 +78,8 @@ namespace NewApiDemo
      {
          ValidateIssuer = true,
          ValidateAudience = true,
-         ValidAudience = Configuration.GetSection("JWT: Audience").Value,
-         ValidIssuer = Configuration.GetSection("JWT: Issuer").Value,
+         ValidAudience = Configuration.GetSection("Audience").Value,
+         ValidIssuer = Configuration.GetSection("Issuer").Value,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration.GetSection("Key").Value))
      };
  });
@@ -137,7 +149,21 @@ namespace NewApiDemo
                     });
             });
 
-        }
+              services.AddHealthChecks();
+
+            // Here is the GUI setup and history storage for health checks
+            services.AddHealthChecksUI(options =>
+            {
+                options.SetEvaluationTimeInSeconds(5); //Sets the time interval in which HealthCheck will be triggered
+                options.MaximumHistoryEntriesPerEndpoint(10); //Sets the maximum number of records displayed in history
+                options.AddHealthCheckEndpoint("Health Checks API", "/Admin"); //Sets the Health Check endpoint
+            }).AddInMemoryStorage(); //Here is the memory bank configuration
+
+
+            services.AddOcelot(Configuration);
+
+
+    }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -165,7 +191,7 @@ namespace NewApiDemo
             app.UseStaticFiles();
 
             app.UseRouting();
-
+            app.UseOcelot();
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -178,7 +204,19 @@ namespace NewApiDemo
                     pattern: "{controller=Home}/{action=Index}/{id?}");
 
                 endpoints.MapControllers();
+
+                endpoints.MapHealthChecks("/Admin");
             });
+
+            //Sets Health Check dashboard options
+            app.UseHealthChecks("/Admin", new HealthCheckOptions
+            {
+                Predicate = p => true,
+                ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+            });
+
+            //Sets the Health Check dashboard configuration
+            app.UseHealthChecksUI(options => { options.UIPath = "/dashboard"; });
         }
     }
 }
