@@ -7,5 +7,6 @@ namespace NewApiDemo.Models
 {
     public class Product
     {
+        public string Password { get; set; }
     }
 }
