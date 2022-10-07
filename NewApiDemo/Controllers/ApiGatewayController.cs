@@ -17,12 +17,12 @@ namespace NewApiDemo.Controllers
             _customerService = customerService;
         }
 
-        [HttpGet]
-        [Route("GetAllCustomer")]
-        public IActionResult GetAllCustomer()
-        {
-            var res=_customerService.GetAllCustomers();
-            return Ok(res);
-        }
+        //[HttpGet]
+        //[Route("GetAllCustomer")]
+        //public IActionResult GetAllCustomer()
+        //{
+        //    var res=_customerService.GetAllCustomers();
+        //    return Ok(res);
+        //}
     }
 }
