@@ -80,9 +80,20 @@ namespace NewApiDemo
          ValidateAudience = true,
          ValidAudience = Configuration.GetSection("Audience").Value,
          ValidIssuer = Configuration.GetSection("Issuer").Value,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration.GetSection("Key").Value))
+         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration.GetSection("Key").Value))
+     };
+     options.Events = new JwtBearerEvents
+     {
+         OnAuthenticationFailed = context => {
+             if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+             {
+                 context.Response.Headers.Add("IS-TOKEN-EXPIRED", "true");
+             }
+             return Task.CompletedTask;
+         }
      };
  });
+           
 
             //        services.AddSwaggerGen(setup =>
             //        {
@@ -160,7 +171,7 @@ namespace NewApiDemo
             }).AddInMemoryStorage(); //Here is the memory bank configuration
 
 
-            services.AddOcelot(Configuration);
+           // services.AddOcelot(Configuration);
 
 
     }
@@ -191,7 +202,7 @@ namespace NewApiDemo
             app.UseStaticFiles();
 
             app.UseRouting();
-            app.UseOcelot();
+          //  app.UseOcelot();
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -217,6 +228,14 @@ namespace NewApiDemo
 
             //Sets the Health Check dashboard configuration
             app.UseHealthChecksUI(options => { options.UIPath = "/dashboard"; });
+
+            app.Use(async (context, next) =>
+            {
+                context.Response.Headers.Add("Authorization", "Satinder singh");
+             
+                await next();
+            });
+
         }
     }
 }
