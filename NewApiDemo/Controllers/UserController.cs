@@ -35,13 +35,13 @@ namespace NewApiDemo.Controllers
         }
 
        
-        //[HttpGet]
-        //[Route("GetAll")]
-        //public IActionResult GetAll()
-        //{
-        //    var emp = _UserService.GetAll();
-        //    return Ok(emp);
-        //}
+        [HttpGet]
+        [Route("GetAll")]
+        public IActionResult GetAll()
+        {
+            var emp = _UserService.GetAll();
+            return Ok(emp);
+        }
 
     //    [HttpPost]
     //    [Route("RefreshToken")]
