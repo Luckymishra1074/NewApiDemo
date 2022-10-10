@@ -1,16 +1,19 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using DataAccessLayer.DataModel;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NewApiDemo.DbContext;
 using NewApiDemo.Entities;
 using NewApiDemo.Helper;
+using NewApiDemo.Identity;
 using NewApiDemo.Models;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -24,42 +27,44 @@ namespace NewApiDemo.Services
 
         IEnumerable<User> GetAll();
 
-        AuthenticationResponse GenerateRefreshToken(User user);
+        Token GenerateToken(string userName);
+        Token GenerateRefreshToken(string user);
         ClaimsPrincipal GetPrincipalFromExpiredToken(string access_Token);
-      //  object GetSavedRefreshTokens(string username, object refresh_Token);
+      
+        // for saving tokens
+        
+        Task<bool> IsValidUserAsync(Login users);
 
+        RefreshToken AddUserRefreshTokens(RefreshToken user);
 
-        //// for saving tokens
-        ///
-        //Task<bool> IsValidUserAsync(User users);
+        RefreshToken GetSavedRefreshTokens(string username, string refreshtoken);
 
-        //RefreshToken AddUserRefreshTokens(RefreshToken user);
+        void DeleteUserRefreshTokens(string username, string refreshToken);
 
-        //RefreshToken GetSavedRefreshTokens(string username, string refreshtoken);
-
-        //void DeleteUserRefreshTokens(string username, string refreshToken);
-
-        //int SaveCommit();
+        int SaveCommit();
     }
 
     public class UserService : IUserService
     {
         private readonly AppSetting _appSettings;
         private readonly IConfiguration _Configuration;
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly ApplicationDbContext _applicationDbContext;
-        public UserService(IOptions<AppSetting> appsettings , IConfiguration configuration,ApplicationDbContext applicationDbContext)
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly EmployeeDBContext _empdb;
+        private readonly ApplicationDbContext _appdb;
+        public UserService(IOptions<AppSetting> appsettings , IConfiguration configuration, EmployeeDBContext employeeDBContext, ApplicationDbContext applicationDBContext, UserManager<ApplicationUser> userManager)
         {
            // _appSettings = appsettings.Value;
             _Configuration = configuration;
-            _applicationDbContext = applicationDbContext;
+            _empdb = employeeDBContext;
+            _userManager = userManager;
+            _appdb = applicationDBContext;
         }
 
         private List<User> _users = new List<User>
         {
             new User { Id = 1, FirstName = "Test", LastName = "User", Username = "test", Password = "test" }
         };
-        private object iconfiguration;
+       
 
         public AuthenticationResponse authentication(AuthenticationRequest model)
         {
@@ -114,10 +119,58 @@ namespace NewApiDemo.Services
             return _users;
         }
 
-        public AuthenticationResponse GenerateRefreshToken(User user)
+
+        //refresh token 
+
+        //public AuthenticationResponse GenerateRefreshToken(User user)
+        //{
+        //    var token= GenerateJWTToken(user);
+        //    return new AuthenticationResponse(user, token);
+        //}
+        public Token GenerateToken(string userName)
         {
-            var token= GenerateJWTToken(user);
-            return new AuthenticationResponse(user, token);
+            return GenerateJWTTokens(userName);
+        }
+
+      
+        public Token GenerateRefreshToken(string user)
+        {
+            return GenerateJWTTokens(user);
+        }
+        public Token GenerateJWTTokens(string userName)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var tokenKey = Encoding.UTF8.GetBytes(_Configuration.GetSection("Key").Value);
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new Claim[]
+                  {
+                 new Claim(ClaimTypes.Name, userName)
+                  }),
+                    Expires = DateTime.Now.AddMinutes(1),
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(tokenKey), SecurityAlgorithms.HmacSha256Signature)
+                };
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var refreshToken = GenerateRefreshToken();
+                return new Token { Access_Token = tokenHandler.WriteToken(token), Refresh_Token = refreshToken };
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+       
+        public string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomNumber);
+                return Convert.ToBase64String(randomNumber);
+            }
         }
 
         public ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
@@ -148,38 +201,42 @@ namespace NewApiDemo.Services
 
 
 
-        //public RefreshToken AddUserRefreshTokens(RefreshToken user)
-        //{
-        //    _db.UserRefreshToken.Add(user);
-        //    return user;
-        //}
 
-        //public void DeleteUserRefreshTokens(string username, string refreshToken)
-        //{
-        //    var item = _db.UserRefreshToken.FirstOrDefault(x => x.UserName == username && x.RefreshToken == refreshToken);
-        //    if (item != null)
-        //    {
-        //        _db.UserRefreshToken.Remove(item);
-        //    }
-        //}
+        //saving the token
+        public RefreshToken AddUserRefreshTokens(RefreshToken user)
+        {
+            _empdb.RefreshToken.Add(user);
+            return user;
+        }
 
-        //public RefreshToken GetSavedRefreshTokens(string username, string refreshToken)
-        //{
-        //    return _db.UserRefreshToken.FirstOrDefault(x => x.UserName == username && x.RefreshToken == refreshToken && x.IsActive == true);
-        //}
+        public void DeleteUserRefreshTokens(string username, string refreshToken)
+        {
+            var item = _empdb.RefreshToken.FirstOrDefault(x => x.UserName == username && x.RefreshTokens == refreshToken);
+            if (item != null)
+            {
+                _empdb.RefreshToken.Remove(item);
+            }
+        }
 
-        //public int SaveCommit()
-        //{
-        //    return _applicationDbContext.SaveChanges();
-        //}
+        public RefreshToken GetSavedRefreshTokens(string username, string refreshToken)
+        {
+            return _empdb.RefreshToken.FirstOrDefault(x => x.UserName == username && x.RefreshTokens == refreshToken);
+        }
 
-        //public async Task<bool> IsValidUserAsync(User users)
-        //{
-        //    var u = _userManager.Users.FirstOrDefault(o => o.UserName == users.FirstName);
-        //    var result = await _userManager.CheckPasswordAsync(u, users.Password);
-        //    return result;
+        public int SaveCommit()
+        {
+            return _empdb.SaveChanges();
+        }
 
-        //}
+        public async Task<bool> IsValidUserAsync(Login users)
+        {
+            var u = _userManager.Users.FirstOrDefault(o => o.UserName == users.Username);
+            var result = await _userManager.CheckPasswordAsync(u, users.Password);
+            return result;
+
+        }
+
+
     }
 
 

@@ -8,6 +8,8 @@ namespace NewApiDemo.Models
 {
     public class Register
     {
+        [Key]
+        public int Id { get; set; }
         [Required(ErrorMessage ="UserName is Required")]
         public string Username { get; set; }
         [Required(ErrorMessage = "Email is Required")]

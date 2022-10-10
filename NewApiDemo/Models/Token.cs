@@ -6,12 +6,10 @@ using System.Threading.Tasks;
 
 namespace NewApiDemo.Models
 {
-    public class Response
+    public class Token
     {
         [Key]
-        public int Id { get; set; }
-        public string Status { get; set; }
-        public string Message { get; set; }
-
+        public string Access_Token { get; set; }
+        public string Refresh_Token { get; set; }
     }
 }

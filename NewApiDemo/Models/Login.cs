@@ -8,6 +8,7 @@ namespace NewApiDemo.Models
 {
     public class Login
     {
+        [Key]
         [Required(ErrorMessage = "UserName is Required")]
         public string Username { get; set; }
         [Required(ErrorMessage = "Password is Required")]

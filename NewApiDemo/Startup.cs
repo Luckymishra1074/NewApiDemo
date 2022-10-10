@@ -1,3 +1,4 @@
+using DataAccessLayer.DataModel;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -47,6 +48,7 @@ namespace NewApiDemo
         {
 
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("DemoApiConnection")));
+            services.AddDbContext<EmployeeDBContext>(options => options.UseSqlServer(Configuration.GetConnectionString("DemoApiConnection")));
 
             // services.Configure<AppSetting>(Configuration.GetSection("AppSettings"));
 

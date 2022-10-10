@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NewApiDemo.Entities;
 using NewApiDemo.Models;
 using NewApiDemo.Services;
 using System;
@@ -43,42 +44,77 @@ namespace NewApiDemo.Controllers
             return Ok(emp);
         }
 
-    //    [HttpPost]
-    //    [Route("RefreshToken")]
-    //    [AllowAnonymous]
-    //    public IActionResult RefreshToken(AuthenticationResponse token)
-    //    {
-    //        var principal = _UserService.GetPrincipalFromExpiredToken(token.Token);
-    //        var username = principal.Identity?.Name;
+        [AllowAnonymous]
+        [HttpPost]
+        [Route("GetToken")]
+        public async Task<IActionResult> GetToken(Login usersdata)
+        {
+            var validUser = await _UserService.IsValidUserAsync(usersdata);
 
-    //        //retrieve the saved refresh token from database
-    //        var savedRefreshToken = _UserService.GetSavedRefreshTokens(username, token.Refresh_Token);
+            if (!validUser)
+            {
+                return Unauthorized("Incorrect username or password!");
+            }
 
-    //        if (savedRefreshToken.RefreshToken != token.Refresh_Token)
-    //        {
-    //            return Unauthorized("Invalid attempt!");
-    //        }
+            var token = _UserService.GenerateToken(usersdata.Username);
 
-    //        var newJwtToken = jWTManager.GenerateRefreshToken(username);
+            if (token == null)
+            {
+                return Unauthorized("Invalid Attempt!");
+            }
 
-    //        if (newJwtToken == null)
-    //        {
-    //            return Unauthorized("Invalid attempt!");
-    //        }
+            // saving refresh token to the db
+            RefreshToken obj = new RefreshToken
+            {
+                RefreshTokens = token.Refresh_Token,
+                UserName = usersdata.Username
+            };
 
-    //        // saving refresh token to the db
-    //        UserRefreshTokens obj = new UserRefreshTokens
-    //        {
-    //            RefreshToken = newJwtToken.Refresh_Token,
-    //            UserName = username
-    //        };
+            _UserService.AddUserRefreshTokens(obj);
+            _UserService.SaveCommit();
+            return Ok(token);
+        }
 
-    //        userServiceRepository.DeleteUserRefreshTokens(username, token.Refresh_Token);
-    //        userServiceRepository.AddUserRefreshTokens(obj);
-    //        userServiceRepository.SaveCommit();
 
-    //        return Ok(newJwtToken);
-    //    }
-    //}
+        [HttpPost]
+        [Route("RefreshToken")]
+        [AllowAnonymous]
+        public IActionResult RefreshToken(Token token)
+        {
+            var principal = _UserService.GetPrincipalFromExpiredToken(token.Access_Token);
+            var username = principal.Identity?.Name;
+
+            //retrieve the saved refresh token from database
+            var savedRefreshToken = _UserService.GetSavedRefreshTokens(username, token.Refresh_Token);
+
+            if (savedRefreshToken.RefreshTokens != token.Refresh_Token)
+            {
+                return Unauthorized("Invalid attempt!");
+            }
+
+            var newJwtToken = _UserService.GenerateRefreshToken(username);
+
+            if (newJwtToken == null)
+            {
+                return Unauthorized("Invalid attempt!");
+            }
+
+            // saving refresh token to the db
+            RefreshToken obj = new RefreshToken
+            {
+                RefreshTokens = newJwtToken.Refresh_Token,
+                UserName = username
+            };
+
+            _UserService.DeleteUserRefreshTokens(username, token.Refresh_Token);
+            _UserService.AddUserRefreshTokens(obj);
+            _UserService.SaveCommit();
+
+            return Ok(newJwtToken);
+        }
+
+
+
     }
 }
+
